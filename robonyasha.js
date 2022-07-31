@@ -6,12 +6,21 @@ class Robonyasha {
 
     constructor() {
         this.ledLamp = require("@amperka/led").connect(P1);
-        this.analogSensor = require("@amperka/analog-line-sensor").connect(A0);
-        this.marsRover = require("@amperka/robot-2wd").connect();
+        this.leftAnalogSensor = require("@amperka/analog-line-sensor").connect(A0);
+        this.rightAnalogSensor = require("@amperka/analog-line-sensor").connect(A1);
+        this.motor = require("@amperka/robot-2wd").connect();
         this.irReceiver = require("@amperka/ir-receiver").connect(P3);
         this.servo = require("@amperka/servo").connect(P8);
         this.ultraSonic = require("@amperka/ultrasonic").connect({trigPin: P12, echoPin: P13});
         this.digitalLineSensor = require("@amperka/digital-line-sensor").connect(P10);
+        this.lineFollower = require("@amperka/pid").create({
+            target: 0,
+            kp: 0.35,
+            ki: 0.05,
+            kd: 1.5,
+            outputMin: -1.5,
+            outputMax: 1.5
+        });
 
         this.MAX_SPEED = 1;
         this.MIN_SPEED = 0.3;
@@ -27,38 +36,38 @@ class Robonyasha {
     dance() {
         this.reset();
         setTimeout((robot) => {
-            robot.marsRover.go({'l': -robot.speed, 'r': -robot.speed});
+            robot.motor.go({'l': -robot.speed, 'r': -robot.speed});
             robot.ledLamp.toggle();
             robot.servo.write(30);
         }, 0, this);
         setTimeout((robot) => {
-            robot.marsRover.go({'l': robot.speed, 'r': robot.speed});
+            robot.motor.go({'l': robot.speed, 'r': robot.speed});
             robot.ledLamp.toggle();
             robot.servo.write(90);
         }, 1000, this);
         setTimeout((robot) => {
-            robot.marsRover.go({'l': robot.speed, 'r': -robot.speed});
+            robot.motor.go({'l': robot.speed, 'r': -robot.speed});
             robot.ledLamp.toggle();
             robot.servo.write(150);
         }, 2000, this);
         setTimeout((robot) => {
-            robot.marsRover.go({'l': -robot.speed, 'r': robot.speed});
+            robot.motor.go({'l': -robot.speed, 'r': robot.speed});
             robot.ledLamp.toggle();
             robot.servo.write(90);
         }, 3000, this);
         setTimeout((robot) => {
-            robot.marsRover.stop();
+            robot.motor.stop();
         }, 4000, this);
     }
 
     bottle() {
         this.reset();
         setTimeout((robot) => {
-            robot.marsRover.go({'l': -robot.speed, 'r': robot.speed});
+            robot.motor.go({'l': -robot.speed, 'r': robot.speed});
             robot.ledLamp.toggle();
         }, 0, this);
         setTimeout((robot) => {
-            robot.marsRover.stop();
+            robot.motor.stop();
             robot.ledLamp.toggle();
         }, getRandomInt(10000), this);
 
@@ -78,7 +87,7 @@ class Robonyasha {
                 robot.return_distance -= 1;
             });
             while (robot.return_distance > 0) {
-                robot.marsRover.go({'l': robot.speed, 'r': robot.speed});
+                robot.motor.go({'l': robot.speed, 'r': robot.speed});
             }
             lineSensor.on("white", () => {});
         }, 1000, this);
@@ -86,9 +95,9 @@ class Robonyasha {
 
     dontBump(currentDistance, interval) {
         if (currentDistance > this.MAX_DISTANCE) {
-            this.marsRover.go({'l': -this.speed, 'r': -this.speed});
+            this.motor.go({'l': -this.speed, 'r': -this.speed});
         } else {
-            this.marsRover.stop();
+            this.motor.stop();
             clearInterval(interval);
         }
     }
@@ -106,18 +115,24 @@ class Robonyasha {
 
     keepDistance(currentDistance) {
         if (currentDistance > this.MAX_DISTANCE) {
-            this.marsRover.go({'l': -this.speed, 'r': -this.speed});
+            this.motor.go({'l': -this.speed, 'r': -this.speed});
         } else if (currentDistance < this.MIN_DISTANCE) {
-            this.marsRover.go({'l': this.speed, 'r': this.speed});
+            this.motor.go({'l': this.speed, 'r': this.speed});
         } else {
-            this.marsRover.stop();
+            this.motor.stop();
             print(currentDistance);
         }
     }
 
     followLine() {
         this.reset();
-        print("NOT IMPLEMENTED!");
+        this.lineFollower.run(() => {
+            let right = this.rightAnalogSensor.read();
+            let left = this.leftAnalogSensor.read();
+            let error = left - right;
+            let output = this.lineFollower.update(error);
+            this.motor.go({'l': -this.speed - output, 'r': -this.speed + output});
+        }, 0.02);
     }
 
     sumoFight() {
@@ -149,7 +164,8 @@ class Robonyasha {
             clearInterval(i);
         }
         this.ledLamp.turnOff();
-        this.marsRover.stop();
+        this.motor.stop();
+        this.lineFollower.stop();
         this.servo.write(90);
         this.return_distance = 0;
     }
