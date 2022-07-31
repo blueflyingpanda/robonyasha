@@ -25,6 +25,7 @@ class Robonyasha {
     }
 
     dance() {
+        this.reset();
         setTimeout((robot) => {
             robot.marsRover.go({'l': -robot.speed, 'r': -robot.speed});
             robot.ledLamp.toggle();
@@ -51,6 +52,7 @@ class Robonyasha {
     }
 
     bottle() {
+        this.reset();
         setTimeout((robot) => {
             robot.marsRover.go({'l': -robot.speed, 'r': robot.speed});
             robot.ledLamp.toggle();
@@ -92,6 +94,7 @@ class Robonyasha {
     }
 
     followHand() {
+        this.reset();
         setInterval((robot) => {
             robot.ultraSonic.ping(function(error, value) {
                 if (!error) {
@@ -113,10 +116,12 @@ class Robonyasha {
     }
 
     followLine() {
+        this.reset();
         print("NOT IMPLEMENTED!");
     }
 
     sumoFight() {
+        this.reset();
         print("NOT IMPLEMENTED!");
     }
 
@@ -132,6 +137,21 @@ class Robonyasha {
         if (this.speed > this.MIN_SPEED) {
             this.speed = this.MIN_SPEED;
         }
+    }
+
+    reset() {
+        print("RESET");
+        // Get a reference to the last interval + 1
+        const interval_id = setInterval(function(){}, Number.MAX_SAFE_INTEGER);
+
+        // Clear any timeout/interval up to that id
+        for (let i = 1; i < interval_id; i++) {
+            clearInterval(i);
+        }
+        this.ledLamp.turnOff();
+        this.marsRover.stop();
+        this.servo.write(90);
+        this.return_distance = 0;
     }
 
 }
@@ -171,6 +191,7 @@ function main() {
                 break;
             case robot.irReceiver.keys.POWER:
                 print("off");
+                robot.reset();
                 break;
             default: break;
         }
